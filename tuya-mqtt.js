@@ -9,11 +9,6 @@ var cleanup = require('./cleanup').Cleanup(onExit);
 function bmap(istate) {
     return istate ? 'ON' : "OFF";
 }
-
-function boolToString(istate) {
-    return istate ? 'true' : "false";
-}
-
 var connected = undefined;
 var CONFIG = undefined;
 

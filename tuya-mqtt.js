@@ -26,24 +26,24 @@ try {
 	process.exit(1);
 }
 
-const mqtt_client = mqtt.connect({
+const mqttClient = mqtt.connect({
 	host: CONFIG.host,
 	port: CONFIG.port,
 	username: CONFIG.mqtt_user,
 	password: CONFIG.mqtt_pass
 });
 
-mqtt_client.on('connect', err => {
+mqttClient.on('connect', err => {
 	debug('Verbindung mit MQTT-Server hergestellt');
 	connected = true;
 	const topic = CONFIG.topic + '#';
-	mqtt_client.subscribe(topic, {
+	mqttClient.subscribe(topic, {
 		retain: CONFIG.retain,
 		qos: CONFIG.qos
 	});
 });
 
-mqtt_client.on('reconnect', error => {
+mqttClient.on('reconnect', error => {
 	if (connected) {
 		debug('Verbindung mit MQTT-Server wurde unterbrochen. Erneuter Verbindungsversuch!');
 	} else {
@@ -53,7 +53,7 @@ mqtt_client.on('reconnect', error => {
 	connected = false;
 });
 
-mqtt_client.on('error', error => {
+mqttClient.on('error', error => {
 	debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.', error);
 	connected = false;
 });
@@ -156,7 +156,7 @@ function getCommandFromTopic(_topic, _message) {
 	return command;
 }
 
-mqtt_client.on('message', (topic, message) => {
+mqttClient.on('message', (topic, message) => {
 	try {
 		message = message.toString();
 		const action = getActionFromTopic(topic);
@@ -210,7 +210,7 @@ mqtt_client.on('message', (topic, message) => {
  * @param {boolean} status
  */
 function publishStatus(device, status) {
-	if (mqtt_client.connected) {
+	if (mqttClient.connected) {
 		try {
 			const {type} = device;
 			const tuyaID = device.options.id;
@@ -225,7 +225,7 @@ function publishStatus(device, status) {
 
 				topic += tuyaID + '/' + tuyaKey + '/' + tuyaIP + '/state';
 
-				mqtt_client.publish(topic, status, {
+				mqttClient.publish(topic, status, {
 					retain: CONFIG.retain,
 					qos: CONFIG.qos
 				});
@@ -245,7 +245,7 @@ function publishStatus(device, status) {
  * @param  {Object} dps
  */
 function publishDPS(device, dps) {
-	if (mqtt_client.connected) {
+	if (mqttClient.connected) {
 		try {
 			const {type} = device;
 			const tuyaID = device.options.id;
@@ -263,7 +263,7 @@ function publishDPS(device, dps) {
 				const topic = baseTopic;
 				const data = JSON.stringify(dps);
 				debugTuya(`mqtt dps updated to:${topic} -> `, data);
-				mqtt_client.publish(topic, data, {
+				mqttClient.publish(topic, data, {
 					retain: CONFIG.retain,
 					qos: CONFIG.qos
 				});
@@ -272,7 +272,7 @@ function publishDPS(device, dps) {
 					const topic = `${baseTopic}/${key}`;
 					const data = JSON.stringify(dps[key]);
 					debugTuya('mqtt dps updated to:' + topic + ' -> dps[' + key + ']', data);
-					mqtt_client.publish(topic, data, {
+					mqttClient.publish(topic, data, {
 						retain: CONFIG.retain,
 						qos: CONFIG.qos
 					});
@@ -314,14 +314,14 @@ class MqttTester {
 	interval = null;
 
 	constructor(mqttClient) {
-		this.mqtt_client = mqttClient;
+		this.mqttClient = mqttClient;
 
 		this.connect();
 	}
 
 	mqttConnectionTest() {
-		if (this.mqtt_client.connected != connected) {
-			connected = this.mqtt_client.connected;
+		if (this.mqttClient.connected != connected) {
+			connected = this.mqttClient.connected;
 			if (connected) {
 				debug('MQTT-Server verbunden.');
 			} else {
@@ -341,7 +341,7 @@ class MqttTester {
 	};
 }
 
-const tester = new MqttTester(mqtt_client);
+const tester = new MqttTester(mqttClient);
 
 /**
  * Function call on script exit

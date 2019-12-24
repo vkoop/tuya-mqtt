@@ -75,8 +75,7 @@ function isJsonString(text) {
 function checkTopicForOldNotation(_topic) {
 	const topic = _topic.split('/');
 	const type = topic[1];
-	const result = (type == 'socket' || type == 'lightbulb');
-	return result;
+	return (type === 'socket' || type === 'lightbulb');
 }
 
 /**
@@ -141,12 +140,12 @@ function getCommandFromTopic(_topic, _message) {
 		command = _message;
 	}
 
-	if (command != '1' && command != '0' && isJsonString(command)) {
+	if (command !== '1' && command !== '0' && isJsonString(command)) {
 		debug('command is JSON');
 		command = JSON.parse(command);
-	} else if (command.toLowerCase() != 'toggle') {
+	} else if (command.toLowerCase() !== 'toggle') {
 		// Convert simple commands (on, off, 1, 0) to TuyAPI-Commands
-		const convertString = Boolean(command.toLowerCase() == 'on' || command == '1' || command == 1);
+		const convertString = Boolean(command.toLowerCase() === 'on' || command === '1' || command === 1);
 		command = {
 			set: convertString
 		};

@@ -1,9 +1,9 @@
-const TuyAPI = require('tuyapi');
+const TuyaDevice = require('tuyapi');
 
 /**
  * Extends default TuyAPI-Class to add some more error handlers
  */
-module.exports = class CustomTuyAPI extends TuyAPI {
+module.exports = class CustomTuyAPI extends TuyaDevice {
 	get(options) {
 		// Set empty object as default
 		options = options || {};

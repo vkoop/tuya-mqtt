@@ -227,15 +227,15 @@ const TuyaDevice = (function () {
 		}
 
 		newStatus = newStatus.toLowerCase();
-		if (newStatus == 'on') {
+		if (newStatus === 'on') {
 			return this.switchOn(callback);
 		}
 
-		if (newStatus == 'off') {
+		if (newStatus === 'off') {
 			return this.switchOff(callback);
 		}
 
-		if (newStatus == 'toggle') {
+		if (newStatus === 'toggle') {
 			return this.toggle(callback);
 		}
 	};
@@ -306,9 +306,8 @@ const TuyaDevice = (function () {
 		return this.device.disconnect(callback);
 	};
 
-	Object.defineProperty(TuyaDevice, 'devices', {
-		value: devices
-	});
+	TuyaDevice.devices = devices;
+
 
 	TuyaDevice.connectAll = function () {
 		devices.forEach(device => {

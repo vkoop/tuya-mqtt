@@ -5,7 +5,7 @@
   "homepage": "https://github.com/TheAgentK/tuya-mqtt#readme",
   "main": "tuya-mqtt.js",
   "scripts": {
-    "test": "xo",
+    "test": "xo && ava",
     "fix": "xo --fix"
   },
   "author": {
@@ -24,6 +24,7 @@
     "url": "git://github.com/TheAgentK/tuya-mqtt.git"
   },
   "devDependencies": {
+    "ava": "^2.4.0",
     "xo": "^0.25.3"
   },
   "xo": {

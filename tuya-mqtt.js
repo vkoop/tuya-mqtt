@@ -313,13 +313,15 @@ class MqttTester {
 
 	interval = null;
 
-	constructor() {
+	constructor(mqttClient) {
+		this.mqtt_client = mqttClient;
+
 		this.connect();
 	}
 
 	mqttConnectionTest() {
-		if (mqtt_client.connected != connected) {
-			connected = mqtt_client.connected;
+		if (this.mqtt_client.connected != connected) {
+			connected = this.mqtt_client.connected;
 			if (connected) {
 				debug('MQTT-Server verbunden.');
 			} else {
@@ -334,12 +336,12 @@ class MqttTester {
 	};
 
 	connect   () {
-		this.interval = setInterval(this.mqttConnectionTest, 1500);
+		this.interval = setInterval( this.mqttConnectionTest.bind(this), 1500);
 		this.mqttConnectionTest();
 	};
 }
 
-const tester = new MqttTester();
+const tester = new MqttTester(mqtt_client);
 
 /**
  * Function call on script exit

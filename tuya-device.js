@@ -181,7 +181,7 @@ const TuyaDevice = (function () {
 	}
 
 	TuyaDevice.prototype.toString = function () {
-		return this.type + ' (' + this.options.ip + ', ' + this.options.id + ', ' + this.options.key + ')';
+		return `${this.type} (${this.options.ip}, ${this.options.id}, ${this.options.key})`;
 	};
 
 	TuyaDevice.prototype.triggerAll = function (name, argument) {

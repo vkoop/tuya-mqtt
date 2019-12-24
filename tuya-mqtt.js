@@ -309,7 +309,7 @@ TuyaDevice.onAll('data', function (data) {
 /**
  * MQTT connection tester
  */
-function MQTT_Tester() {
+function MqttTester() {
 	this.interval = null;
 
 	function mqttConnectionTest() {
@@ -338,7 +338,7 @@ function MQTT_Tester() {
 	})(this);
 }
 
-const tester = new MQTT_Tester();
+const tester = new MqttTester();
 
 /**
  * Function call on script exit

@@ -230,7 +230,7 @@ TuyaColorLight.prototype.getDps = function () {
 
 	const temperature = (this.colorMode === 'colour') ? 255 : this._convertColorTemperature(colorTemperature);
 
-	dpsTmp = {
+	let dpsTmp = {
 		1: true,
 		2: this.colorMode,
 		3: apiBrightness,

@@ -175,7 +175,7 @@ mqtt_client.on('message', (topic, message) => {
 
 			switch (action) {
 				case 'command':
-					var command = getCommandFromTopic(topic, message);
+					const command = getCommandFromTopic(topic, message);
 					debug('receive command', command);
 					if (command == 'toggle') {
 						device.switch(command).then(data => {
@@ -189,7 +189,7 @@ mqtt_client.on('message', (topic, message) => {
 
 					break;
 				case 'color':
-					var color = message.toLowerCase();
+					const color = message.toLowerCase();
 					debugColor('set color: ', color);
 					device.setColor(color).then(data => {
 						debug('set device color completed', data);
@@ -239,17 +239,13 @@ function publishStatus(device, status) {
 	}
 }
 
-function publishColorState(device, state) {
-
-}
-
 /**
  * Publish all dps-values to topic
  * @param  {TuyaDevice} device
  * @param  {Object} dps
  */
 function publishDPS(device, dps) {
-	if (mqtt_client.connected == true) {
+	if (mqtt_client.connected) {
 		try {
 			const {type} = device;
 			const tuyaID = device.options.id;

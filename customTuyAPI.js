@@ -1,4 +1,5 @@
 const TuyaDevice = require('tuyapi');
+const debug = require('debug')('TuyAPI:device');
 
 /**
  * Extends default TuyAPI-Class to add some more error handlers

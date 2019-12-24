@@ -4,27 +4,25 @@ const debug = require('debug')('TuyAPI:mqtt');
 const debugColor = require('debug')('TuyAPI:mqtt:color');
 const debugTuya = require('debug')('TuyAPI:mqtt:device');
 const debugError = require('debug')('TuyAPI:mqtt:error');
-var cleanup = require('./cleanup').Cleanup(onExit);
+require('./cleanup').Cleanup(onExit);
 
 function bmap(istate) {
     return istate ? 'ON' : "OFF";
 }
 var connected = undefined;
-var CONFIG = undefined;
+let CONFIG = {
+    qos: 2,
+    retain: false,
+    mqtt_user: "",
+    mqtt_pass: ""
+};
 
 try {
-    CONFIG = require("./config");
+    CONFIG = Object.assign(CONFIG, require("./config")) ;
 } catch (e) {
     console.error("Configuration file not found")
     debugError(e)
     process.exit(1)
-}
-
-if (typeof CONFIG.qos == "undefined") {
-    CONFIG.qos = 2;
-}
-if (typeof CONFIG.retain == "undefined") {
-    CONFIG.retain = false;
 }
 
 const mqtt_client = mqtt.connect({

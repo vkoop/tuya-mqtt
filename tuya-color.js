@@ -27,8 +27,8 @@ function TuyaColorLight() {
 
 /**
  * Calculate color value from given percentage
- * @param  {Integer} percentage 0-100 percentage value
- * @returns {Integer} color value from 0-255
+ * @param  {Number} percentage 0-100 percentage value
+ * @returns {Number} color value from 0-255
  */
 TuyaColorLight.prototype._convertPercentageToVal = function (percentage) {
 	const tmp = Math.round(255 * (percentage / 100));
@@ -38,8 +38,8 @@ TuyaColorLight.prototype._convertPercentageToVal = function (percentage) {
 
 /**
  * Calculate percentage from color value
- * @param  {Integer} val 0-255 color value
- * @returns {Integer} HK-Value
+ * @param  {Number} val 0-255 color value
+ * @returns {Number} HK-Value
  */
 TuyaColorLight.prototype._convertValToPercentage = function (val) {
 	const tmp = Math.round((val / 255) * 100);
@@ -49,8 +49,8 @@ TuyaColorLight.prototype._convertValToPercentage = function (val) {
 
 /**
  * Converts color value to color temperature
- * @param  {Integer} val
- * @returns {Integer} percentage from 0-100
+ * @param  {Number} val
+ * @returns {Number} percentage from 0-100
  */
 TuyaColorLight.prototype._convertColorTemperature = function (val) {
 	const tmpRange = this.colorTempMax - this.colorTempMin;
@@ -71,8 +71,8 @@ TuyaColorLight.prototype._convertColorTemperature = function (val) {
 
 /**
  * Convert color temperature to HK
- * @param  {Integer} val
- * @returns {Integer} HK-Value
+ * @param  {Number} val
+ * @returns {Number} HK-Value
  */
 TuyaColorLight.prototype._convertColorTemperatureToHK = function (val) {
 	const tuyaColorTempPercent = this._convertValToPercentage(this.colorTemperature);
@@ -105,7 +105,7 @@ TuyaColorLight.prototype._ValIsHex = function (h) {
 
 /**
  * Get AlphaHex from percentage brightness
- * @param  {Integer} brightness
+ * @param  {Number} brightness
  * @return {string} brightness as HEX value
  */
 TuyaColorLight.prototype._getAlphaHex = function (brightness) {
@@ -120,7 +120,7 @@ TuyaColorLight.prototype._getAlphaHex = function (brightness) {
 
 /**
  * Set saturation from value
- * @param  {Integer} value
+ * @param  {Number} value
  */
 TuyaColorLight.prototype.setSaturation = function (value) {
 	this.color.S = value;
@@ -132,7 +132,7 @@ TuyaColorLight.prototype.setSaturation = function (value) {
 
 /**
  * Set Brightness
- * @param  {Integer} value
+ * @param  {Number} value
  */
 TuyaColorLight.prototype.setBrightness = function (value) {
 	this.brightness = value;
@@ -168,9 +168,9 @@ TuyaColorLight.prototype.setHue = function (value) {
 
 /**
  * Set HSL color
- * @param  {Integer} hue
- * @param  {Integer} saturation
- * @param  {Integer} brightness
+ * @param  {Number} hue
+ * @param  {Number} saturation
+ * @param  {Number} brightness
  */
 TuyaColorLight.prototype.setHSL = function (hue, saturation, brightness) {
 	this.setSaturation(saturation);

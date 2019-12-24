@@ -1,16 +1,17 @@
-const mqtt = require('mqtt');
-const TuyaDevice = require('./tuya-device');
 const debug = require('debug')('TuyAPI:mqtt');
 const debugColor = require('debug')('TuyAPI:mqtt:color');
 const debugTuya = require('debug')('TuyAPI:mqtt:device');
 const debugError = require('debug')('TuyAPI:mqtt:error');
+
+const mqtt = require('mqtt');
+const TuyaDevice = require('./tuya-device');
+
 require('./cleanup').Cleanup(onExit);
 
 function bmap(istate) {
 	return istate ? 'ON' : 'OFF';
 }
 
-let connected;
 let CONFIG = {
 	qos: 2,
 	retain: false,
@@ -26,37 +27,229 @@ try {
 	process.exit(1);
 }
 
-const mqttClient = mqtt.connect({
-	host: CONFIG.host,
-	port: CONFIG.port,
-	username: CONFIG.mqtt_user,
-	password: CONFIG.mqtt_pass
-});
-
-mqttClient.on('connect', err => {
-	debug('Verbindung mit MQTT-Server hergestellt');
-	connected = true;
-	const topic = CONFIG.topic + '#';
-	mqttClient.subscribe(topic, {
-		retain: CONFIG.retain,
-		qos: CONFIG.qos
-	});
-});
-
-mqttClient.on('reconnect', error => {
-	if (connected) {
-		debug('Verbindung mit MQTT-Server wurde unterbrochen. Erneuter Verbindungsversuch!');
-	} else {
-		debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.');
+class MqttClientManager {
+	constructor() {
+		this._connected = false;
+		this.mqttClient = null;
+		this.interval = null;
 	}
 
-	connected = false;
-});
+	init() {
+		const self = this;
 
-mqttClient.on('error', error => {
-	debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.', error);
-	connected = false;
-});
+		this.mqttClient = mqtt.connect({
+			host: CONFIG.host,
+			port: CONFIG.port,
+			username: CONFIG.mqtt_user,
+			password: CONFIG.mqtt_pass
+		});
+
+		this.mqttClient.on('connect', this.handleConnect.bind(this));
+		this.mqttClient.on('reconnect', this.handleReconnect.bind(this));
+		this.mqttClient.on('error', this.handleClientError.bind(this));
+		this.mqttClient.on('message', this.handleClientMessage.bind(this));
+
+		this.connect();
+
+		/**
+         * Event fires if TuyaDevice sends data
+         * @see TuyAPI (https://github.com/codetheweb/tuyapi)
+         */
+		TuyaDevice.onAll('data', function (data) {
+			try {
+				if (typeof data.dps !== 'undefined') {
+					debugTuya('Data from device ' + this.type + ' :', data);
+					const status = data.dps['1'];
+					if (typeof status !== 'undefined') {
+						self.publishStatus(this, bmap(status));
+					}
+
+					self.publishDPS(this, data.dps);
+				}
+			} catch (error) {
+				debugError(error);
+			}
+		});
+	}
+
+	handleConnect() {
+		debug('Verbindung mit MQTT-Server hergestellt');
+		this._connected = true;
+		const topic = CONFIG.topic + '#';
+		this.mqttClient.subscribe(topic, {
+			retain: CONFIG.retain,
+			qos: CONFIG.qos
+		});
+	}
+
+	handleClientMessage(topic, message) {
+		try {
+			message = message.toString();
+			const action = getActionFromTopic(topic);
+			const options = getDeviceFromTopic(topic);
+
+			debug('receive settings', JSON.stringify({
+				topic,
+				action,
+				message,
+				options
+			}));
+
+			const device = new TuyaDevice(options);
+			device.then(params => {
+				const {device} = params;
+
+				switch (action) {
+					case 'command':
+						const command = getCommandFromTopic(topic, message);
+						debug('receive command', command);
+						if (command === 'toggle') {
+							device.switch(command).then(data => {
+								debug('set device status completed', data);
+							});
+						} else {
+							device.set(command).then(data => {
+								debug('set device status completed', data);
+							});
+						}
+
+						break;
+					case 'color':
+						const color = message.toLowerCase();
+						debugColor('set color: ', color);
+						device.setColor(color).then(data => {
+							debug('set device color completed', data);
+						});
+						break;
+				}
+			}).catch(error => {
+				debugError(error);
+			});
+		} catch (error) {
+			debugError(error);
+		}
+	}
+
+	handleReconnect(error) {
+		if (this.connected) {
+			debug('Verbindung mit MQTT-Server wurde unterbrochen. Erneuter Verbindungsversuch!');
+		} else {
+			debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.');
+		}
+	}
+
+	handleClientError(error) {
+		debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.', error);
+		this._connected = false;
+	}
+
+	get connected() {
+		return this._connected;
+	}
+
+	/**
+     * Publish current TuyaDevice state to MQTT-Topic
+     * @param {TuyaDevice} device
+     * @param {boolean} status
+     */
+	publishStatus(device, status) {
+		if (this.connected) {
+			try {
+				const {type} = device;
+				const tuyaID = device.options.id;
+				const tuyaKey = device.options.key;
+				const tuyaIP = device.options.ip;
+
+				if (typeof tuyaID !== 'undefined' && typeof tuyaKey !== 'undefined' && typeof tuyaIP !== 'undefined') {
+					let {topic} = CONFIG;
+					if (typeof type !== 'undefined') {
+						topic += type + '/';
+					}
+
+					topic += `${tuyaID}/${tuyaKey}/${tuyaIP}/state`;
+
+					this.mqttClient.publish(topic, status, {
+						retain: CONFIG.retain,
+						qos: CONFIG.qos
+					});
+					debugTuya('mqtt status updated to:' + topic + ' -> ' + status);
+				} else {
+					debugTuya('mqtt status not updated');
+				}
+			} catch (error) {
+				debugError(error);
+			}
+		}
+	}
+
+	/**
+     * Publish all dps-values to topic
+     * @param  {TuyaDevice} device
+     * @param  {Object} dps
+     */
+	publishDPS(device, dps) {
+		if (this.connected) {
+			try {
+				const {type} = device;
+				const tuyaID = device.options.id;
+				const tuyaKey = device.options.key;
+				const tuyaIP = device.options.ip;
+
+				if (typeof tuyaID !== 'undefined' && typeof tuyaKey !== 'undefined' && typeof tuyaIP !== 'undefined') {
+					let baseTopic = CONFIG.topic;
+					if (typeof type !== 'undefined') {
+						baseTopic += type + '/';
+					}
+
+					baseTopic += `${tuyaID}/${tuyaKey}/${tuyaIP}/dps`;
+
+					const topic = baseTopic;
+					const data = JSON.stringify(dps);
+					debugTuya(`mqtt dps updated to:${topic} -> `, data);
+					this.mqttClient.publish(topic, data, {
+						retain: CONFIG.retain,
+						qos: CONFIG.qos
+					});
+
+					Object.keys(dps).forEach(key => {
+						const topic = `${baseTopic}/${key}`;
+						const data = JSON.stringify(dps[key]);
+						debugTuya(`mqtt dps updated to:${topic} -> dps[${key}]`, data);
+						this.mqttClient.publish(topic, data, {
+							retain: CONFIG.retain,
+							qos: CONFIG.qos
+						});
+					});
+				} else {
+					debugTuya('mqtt dps not updated');
+				}
+			} catch (error) {
+				debugError(error);
+			}
+		}
+	}
+
+	mqttConnectionTest() {
+		if (this.mqttClient.connected !== this.connected) {
+			this._connected = this.mqttClient.connected;
+			if (this._connected) {
+				debug('MQTT-Server verbunden.');
+			} else {
+				debug('MQTT-Server nicht verbunden.');
+			}
+		}
+	}
+
+	destroy() {
+		clearInterval(this.interval);
+		this.interval = undefined;
+	}
+
+	connect() {
+		this.interval = setInterval(this.mqttConnectionTest.bind(this), 1500);
+		this.mqttConnectionTest();
+	}
+}
 
 /**
  * Execute function on topic message
@@ -156,199 +349,15 @@ function getCommandFromTopic(_topic, _message) {
 	return command;
 }
 
-mqttClient.on('message', (topic, message) => {
-	try {
-		message = message.toString();
-		const action = getActionFromTopic(topic);
-		const options = getDeviceFromTopic(topic);
-
-		debug('receive settings', JSON.stringify({
-			topic,
-			action,
-			message,
-			options
-		}));
-
-		const device = new TuyaDevice(options);
-		device.then(params => {
-			const {device} = params;
-
-			switch (action) {
-				case 'command':
-					const command = getCommandFromTopic(topic, message);
-					debug('receive command', command);
-					if (command == 'toggle') {
-						device.switch(command).then(data => {
-							debug('set device status completed', data);
-						});
-					} else {
-						device.set(command).then(data => {
-							debug('set device status completed', data);
-						});
-					}
-
-					break;
-				case 'color':
-					const color = message.toLowerCase();
-					debugColor('set color: ', color);
-					device.setColor(color).then(data => {
-						debug('set device color completed', data);
-					});
-					break;
-			}
-		}).catch(error => {
-			debugError(error);
-		});
-	} catch (error) {
-		debugError(error);
-	}
-});
-
-/**
- * Publish current TuyaDevice state to MQTT-Topic
- * @param {TuyaDevice} device
- * @param {boolean} status
- */
-function publishStatus(device, status) {
-	if (mqttClient.connected) {
-		try {
-			const {type} = device;
-			const tuyaID = device.options.id;
-			const tuyaKey = device.options.key;
-			const tuyaIP = device.options.ip;
-
-			if (typeof tuyaID !== 'undefined' && typeof tuyaKey !== 'undefined' && typeof tuyaIP !== 'undefined') {
-				let {topic} = CONFIG;
-				if (typeof type !== 'undefined') {
-					topic += type + '/';
-				}
-
-				topic += tuyaID + '/' + tuyaKey + '/' + tuyaIP + '/state';
-
-				mqttClient.publish(topic, status, {
-					retain: CONFIG.retain,
-					qos: CONFIG.qos
-				});
-				debugTuya('mqtt status updated to:' + topic + ' -> ' + status);
-			} else {
-				debugTuya('mqtt status not updated');
-			}
-		} catch (error) {
-			debugError(error);
-		}
-	}
-}
-
-/**
- * Publish all dps-values to topic
- * @param  {TuyaDevice} device
- * @param  {Object} dps
- */
-function publishDPS(device, dps) {
-	if (mqttClient.connected) {
-		try {
-			const {type} = device;
-			const tuyaID = device.options.id;
-			const tuyaKey = device.options.key;
-			const tuyaIP = device.options.ip;
-
-			if (typeof tuyaID !== 'undefined' && typeof tuyaKey !== 'undefined' && typeof tuyaIP !== 'undefined') {
-				let baseTopic = CONFIG.topic;
-				if (typeof type !== 'undefined') {
-					baseTopic += type + '/';
-				}
-
-				baseTopic += `${tuyaID}/${tuyaKey}/${tuyaIP}/dps`;
-
-				const topic = baseTopic;
-				const data = JSON.stringify(dps);
-				debugTuya(`mqtt dps updated to:${topic} -> `, data);
-				mqttClient.publish(topic, data, {
-					retain: CONFIG.retain,
-					qos: CONFIG.qos
-				});
-
-				Object.keys(dps).forEach(key => {
-					const topic = `${baseTopic}/${key}`;
-					const data = JSON.stringify(dps[key]);
-					debugTuya('mqtt dps updated to:' + topic + ' -> dps[' + key + ']', data);
-					mqttClient.publish(topic, data, {
-						retain: CONFIG.retain,
-						qos: CONFIG.qos
-					});
-				});
-			} else {
-				debugTuya('mqtt dps not updated');
-			}
-		} catch (error) {
-			debugError(error);
-		}
-	}
-}
-
-/**
- * Event fires if TuyaDevice sends data
- * @see TuyAPI (https://github.com/codetheweb/tuyapi)
- */
-TuyaDevice.onAll('data', function (data) {
-	try {
-		if (typeof data.dps !== 'undefined') {
-			debugTuya('Data from device ' + this.type + ' :', data);
-			const status = data.dps['1'];
-			if (typeof status !== 'undefined') {
-				publishStatus(this, bmap(status));
-			}
-
-			publishDPS(this, data.dps);
-		}
-	} catch (error) {
-		debugError(error);
-	}
-});
-
-/**
- * MQTT connection tester
- */
-class MqttTester {
-
-	interval = null;
-
-	constructor(mqttClient) {
-		this.mqttClient = mqttClient;
-
-		this.connect();
-	}
-
-	mqttConnectionTest() {
-		if (this.mqttClient.connected != connected) {
-			connected = this.mqttClient.connected;
-			if (connected) {
-				debug('MQTT-Server verbunden.');
-			} else {
-				debug('MQTT-Server nicht verbunden.');
-			}
-		}
-	}
-
-	destroy  () {
-		clearInterval(this.interval);
-		this.interval = undefined;
-	};
-
-	connect   () {
-		this.interval = setInterval( this.mqttConnectionTest.bind(this), 1500);
-		this.mqttConnectionTest();
-	};
-}
-
-const tester = new MqttTester(mqttClient);
+const mqttClientManager = new MqttClientManager();
+mqttClientManager.init();
 
 /**
  * Function call on script exit
  */
 function onExit() {
 	TuyaDevice.disconnectAll();
-	if (tester) {
-		tester.destroy();
+	if (mqttClientManager) {
+		mqttClientManager.destroy();
 	}
 }

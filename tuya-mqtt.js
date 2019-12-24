@@ -62,7 +62,7 @@ mqtt_client.on('error', error => {
  * Execute function on topic message
  */
 
-function IsJsonString(text) {
+function isJsonString(text) {
 	if (/^[\],:{}\s]*$/.test(text.replace(/\\["\\\/bfnrtu]/g, '@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
 		// The json is ok
 		return true;
@@ -143,7 +143,7 @@ function getCommandFromTopic(_topic, _message) {
 		command = _message;
 	}
 
-	if (command != '1' && command != '0' && IsJsonString(command)) {
+	if (command != '1' && command != '0' && isJsonString(command)) {
 		debug('command is JSON');
 		command = JSON.parse(command);
 	} else if (command.toLowerCase() != 'toggle') {

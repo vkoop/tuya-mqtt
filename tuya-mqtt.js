@@ -309,10 +309,15 @@ TuyaDevice.onAll('data', function (data) {
 /**
  * MQTT connection tester
  */
-function MqttTester() {
-	this.interval = null;
+class MqttTester {
 
-	function mqttConnectionTest() {
+	interval = null;
+
+	constructor() {
+		this.connect();
+	}
+
+	mqttConnectionTest() {
 		if (mqtt_client.connected != connected) {
 			connected = mqtt_client.connected;
 			if (connected) {
@@ -323,19 +328,15 @@ function MqttTester() {
 		}
 	}
 
-	this.destroy = function () {
+	destroy  () {
 		clearInterval(this.interval);
 		this.interval = undefined;
 	};
 
-	this.connect = function () {
-		this.interval = setInterval(mqttConnectionTest, 1500);
-		mqttConnectionTest();
+	connect   () {
+		this.interval = setInterval(this.mqttConnectionTest, 1500);
+		this.mqttConnectionTest();
 	};
-
-	const constructor = (function (that) {
-		that.connect.call(that);
-	})(this);
 }
 
 const tester = new MqttTester();

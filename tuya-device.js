@@ -103,7 +103,9 @@ const TuyaDevice = (function () {
 	function TuyaDevice(options, callback) {
 		const device = this;
 		// Check for existing instance
-		if (existing = checkExisiting(options.id)) {
+
+		const existing = checkExisiting(options.id);
+		if (existing) {
 			return new Promise((resolve, reject) => {
 				resolve({
 					status: 'connected',
@@ -307,7 +309,6 @@ const TuyaDevice = (function () {
 	};
 
 	TuyaDevice.devices = devices;
-
 
 	TuyaDevice.connectAll = function () {
 		devices.forEach(device => {

@@ -128,7 +128,7 @@ function getDeviceFromTopic(_topic) {
  */
 function getCommandFromTopic(_topic, _message) {
 	const topic = _topic.split('/');
-	let command = null;
+	let command;
 
 	if (checkTopicForOldNotation(_topic)) {
 		command = topic[6];

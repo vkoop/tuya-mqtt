@@ -70,7 +70,7 @@ function isJsonString(text) {
 
 /**
  * Check mqtt-topic string for old notation with included device type
- * @param {String} topic
+ * @param {String} _topic
  */
 function checkTopicForOldNotation(_topic) {
 	const topic = _topic.split('/');
@@ -81,7 +81,7 @@ function checkTopicForOldNotation(_topic) {
 
 /**
  * Get action from mqtt-topic string
- * @param {String} topic
+ * @param {String} _topic
  * @returns {String} action type
  */
 function getActionFromTopic(_topic) {
@@ -96,7 +96,7 @@ function getActionFromTopic(_topic) {
 
 /**
  * Get device informations from mqtt-topic string
- * @param {String} topic
+ * @param {String} _topic
  * @returns {String} object.id
  * @returns {String} object.key
  * @returns {String} object.ip
@@ -123,7 +123,8 @@ function getDeviceFromTopic(_topic) {
 /**
  * Get command from mqtt - topic string
  * converts simple commands to TuyAPI JSON commands
- * @param {String} topic
+ * @param {String} _topic
+ * @param _message
  * @returns {Object}
  */
 function getCommandFromTopic(_topic, _message) {

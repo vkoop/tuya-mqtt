@@ -7,203 +7,204 @@ const debugError = require('debug')('TuyAPI:mqtt:error');
 require('./cleanup').Cleanup(onExit);
 
 function bmap(istate) {
-    return istate ? 'ON' : "OFF";
+	return istate ? 'ON' : 'OFF';
 }
-var connected = undefined;
+
+let connected;
 let CONFIG = {
-    qos: 2,
-    retain: false,
-    mqtt_user: "",
-    mqtt_pass: ""
+	qos: 2,
+	retain: false,
+	mqtt_user: '',
+	mqtt_pass: ''
 };
 
 try {
-    CONFIG = Object.assign(CONFIG, require("./config")) ;
-} catch (e) {
-    console.error("Configuration file not found")
-    debugError(e)
-    process.exit(1)
+	CONFIG = Object.assign(CONFIG, require('./config'));
+} catch (error) {
+	console.error('Configuration file not found');
+	debugError(error);
+	process.exit(1);
 }
 
 const mqtt_client = mqtt.connect({
-    host: CONFIG.host,
-    port: CONFIG.port,
-    username: CONFIG.mqtt_user,
-    password: CONFIG.mqtt_pass,
+	host: CONFIG.host,
+	port: CONFIG.port,
+	username: CONFIG.mqtt_user,
+	password: CONFIG.mqtt_pass
 });
 
-mqtt_client.on('connect', function (err) {
-    debug("Verbindung mit MQTT-Server hergestellt");
-    connected = true;
-    var topic = CONFIG.topic + '#';
-    mqtt_client.subscribe(topic, {
-        retain: CONFIG.retain,
-        qos: CONFIG.qos
-    });
+mqtt_client.on('connect', err => {
+	debug('Verbindung mit MQTT-Server hergestellt');
+	connected = true;
+	const topic = CONFIG.topic + '#';
+	mqtt_client.subscribe(topic, {
+		retain: CONFIG.retain,
+		qos: CONFIG.qos
+	});
 });
 
-mqtt_client.on("reconnect", function (error) {
-    if (connected) {
-        debug("Verbindung mit MQTT-Server wurde unterbrochen. Erneuter Verbindungsversuch!");
-    } else {
-        debug("Verbindung mit MQTT-Server konnte nicht herrgestellt werden.");
-    }
-    connected = false;
+mqtt_client.on('reconnect', error => {
+	if (connected) {
+		debug('Verbindung mit MQTT-Server wurde unterbrochen. Erneuter Verbindungsversuch!');
+	} else {
+		debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.');
+	}
+
+	connected = false;
 });
 
-mqtt_client.on("error", function (error) {
-    debug("Verbindung mit MQTT-Server konnte nicht herrgestellt werden.", error);
-    connected = false;
+mqtt_client.on('error', error => {
+	debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.', error);
+	connected = false;
 });
 
 /**
- * execute function on topic message
+ * Execute function on topic message
  */
 
 function IsJsonString(text) {
-    if (/^[\],:{}\s]*$/.test(text.replace(/\\["\\\/bfnrtu]/g, '@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
-        //the json is ok
-        return true;
-    }
-    return false;
+	if (/^[\],:{}\s]*$/.test(text.replace(/\\["\\\/bfnrtu]/g, '@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+		// The json is ok
+		return true;
+	}
+
+	return false;
 }
 
 /**
- * check mqtt-topic string for old notation with included device type
+ * Check mqtt-topic string for old notation with included device type
  * @param {String} topic
  */
 function checkTopicForOldNotation(_topic) {
-    var topic = _topic.split("/");
-    var type = topic[1];
-    var result = (type == "socket" || type == "lightbulb");
-    return result;
+	const topic = _topic.split('/');
+	const type = topic[1];
+	const result = (type == 'socket' || type == 'lightbulb');
+	return result;
 }
 
 /**
- * get action from mqtt-topic string
+ * Get action from mqtt-topic string
  * @param {String} topic
  * @returns {String} action type
  */
 function getActionFromTopic(_topic) {
-    var topic = _topic.split("/");
+	const topic = _topic.split('/');
 
-    if (checkTopicForOldNotation(_topic)) {
-        return topic[5];
-    } else {
-        return topic[4];
-    }
+	if (checkTopicForOldNotation(_topic)) {
+		return topic[5];
+	}
+
+	return topic[4];
 }
 
 /**
- * get device informations from mqtt-topic string
+ * Get device informations from mqtt-topic string
  * @param {String} topic
  * @returns {String} object.id
  * @returns {String} object.key
  * @returns {String} object.ip
  */
 function getDeviceFromTopic(_topic) {
-    var topic = _topic.split("/");
+	const topic = _topic.split('/');
 
-    if (checkTopicForOldNotation(_topic)) {
-        return {
-            id: topic[2],
-            key: topic[3],
-            ip: topic[4],
-            type: topic[1]
-        };
-    } else {
-        return {
-            id: topic[1],
-            key: topic[2],
-            ip: topic[3]
-        };
-    }
+	if (checkTopicForOldNotation(_topic)) {
+		return {
+			id: topic[2],
+			key: topic[3],
+			ip: topic[4],
+			type: topic[1]
+		};
+	}
+
+	return {
+		id: topic[1],
+		key: topic[2],
+		ip: topic[3]
+	};
 }
 
 /**
- * get command from mqtt - topic string
+ * Get command from mqtt - topic string
  * converts simple commands to TuyAPI JSON commands
  * @param {String} topic
  * @returns {Object}
  */
 function getCommandFromTopic(_topic, _message) {
-    var topic = _topic.split("/");
-    var command = null;
+	const topic = _topic.split('/');
+	let command = null;
 
-    if (checkTopicForOldNotation(_topic)) {
-        command = topic[6];
-    } else {
-        command = topic[5];
-    }
+	if (checkTopicForOldNotation(_topic)) {
+		command = topic[6];
+	} else {
+		command = topic[5];
+	}
 
-    if (command == null) {
-        command = _message;
-    }
+	if (command == null) {
+		command = _message;
+	}
 
-    if (command != "1" && command != "0" && IsJsonString(command)) {
-        debug("command is JSON");
-        command = JSON.parse(command);
-    } else {
-        if (command.toLowerCase() != "toggle") {
-            // convert simple commands (on, off, 1, 0) to TuyAPI-Commands
-            var convertString = command.toLowerCase() == "on" || command == "1" || command == 1 ? true : false;
-            command = {
-                set: convertString
-            }
-        } else {
-            command = command.toLowerCase();
-        }
-    }
+	if (command != '1' && command != '0' && IsJsonString(command)) {
+		debug('command is JSON');
+		command = JSON.parse(command);
+	} else if (command.toLowerCase() != 'toggle') {
+		// Convert simple commands (on, off, 1, 0) to TuyAPI-Commands
+		const convertString = Boolean(command.toLowerCase() == 'on' || command == '1' || command == 1);
+		command = {
+			set: convertString
+		};
+	} else {
+		command = command.toLowerCase();
+	}
 
-    return command;
+	return command;
 }
 
-mqtt_client.on('message', function (topic, message) {
-    try {
-        message = message.toString();
-        var action = getActionFromTopic(topic);
-        var options = getDeviceFromTopic(topic);
+mqtt_client.on('message', (topic, message) => {
+	try {
+		message = message.toString();
+		const action = getActionFromTopic(topic);
+		const options = getDeviceFromTopic(topic);
 
-        debug("receive settings", JSON.stringify({
-            topic: topic,
-            action: action,
-            message: message,
-            options: options
-        }));
+		debug('receive settings', JSON.stringify({
+			topic,
+			action,
+			message,
+			options
+		}));
 
-        var device = new TuyaDevice(options);
-        device.then(function (params) {
-            var device = params.device;
+		const device = new TuyaDevice(options);
+		device.then(params => {
+			const {device} = params;
 
-            switch (action) {
-                case "command":
-                    var command = getCommandFromTopic(topic, message);
-                    debug("receive command", command);
-                    if (command == "toggle") {
-                        device.switch(command).then((data) => {
-                            debug("set device status completed", data);
-                        });
-                    } else {
-                        device.set(command).then((data) => {
-                            debug("set device status completed", data);
-                        });
-                    }
-                    break;
-                case "color":
-                    var color = message.toLowerCase();
-                    debugColor("set color: ", color);
-                    device.setColor(color).then((data) => {
-                        debug("set device color completed", data);
-                    });
-                    break;
-            }
+			switch (action) {
+				case 'command':
+					var command = getCommandFromTopic(topic, message);
+					debug('receive command', command);
+					if (command == 'toggle') {
+						device.switch(command).then(data => {
+							debug('set device status completed', data);
+						});
+					} else {
+						device.set(command).then(data => {
+							debug('set device status completed', data);
+						});
+					}
 
-        }).catch((err) => {
-            debugError(err);
-        });
-    } catch (e) {
-        debugError(e);
-    }
+					break;
+				case 'color':
+					var color = message.toLowerCase();
+					debugColor('set color: ', color);
+					device.setColor(color).then(data => {
+						debug('set device color completed', data);
+					});
+					break;
+			}
+		}).catch(error => {
+			debugError(error);
+		});
+	} catch (error) {
+		debugError(error);
+	}
 });
 
 /**
@@ -212,32 +213,33 @@ mqtt_client.on('message', function (topic, message) {
  * @param {boolean} status
  */
 function publishStatus(device, status) {
-    if (mqtt_client.connected == true) {
-        try {
-            var type = device.type;
-            var tuyaID = device.options.id;
-            var tuyaKey = device.options.key;
-            var tuyaIP = device.options.ip;
+	if (mqtt_client.connected == true) {
+		try {
+			const {type} = device;
+			const tuyaID = device.options.id;
+			const tuyaKey = device.options.key;
+			const tuyaIP = device.options.ip;
 
-            if (typeof tuyaID != "undefined" && typeof tuyaKey != "undefined" && typeof tuyaIP != "undefined") {
-                var topic = CONFIG.topic;
-                if (typeof type != "undefined") {
-                    topic += type + "/";
-                }
-                topic += tuyaID + "/" + tuyaKey + "/" + tuyaIP + "/state";
+			if (typeof tuyaID !== 'undefined' && typeof tuyaKey !== 'undefined' && typeof tuyaIP !== 'undefined') {
+				let {topic} = CONFIG;
+				if (typeof type !== 'undefined') {
+					topic += type + '/';
+				}
 
-                mqtt_client.publish(topic, status, {
-                    retain: CONFIG.retain,
-                    qos: CONFIG.qos
-                });
-                debugTuya("mqtt status updated to:" + topic + " -> " + status);
-            } else {
-                debugTuya("mqtt status not updated");
-            }
-        } catch (e) {
-            debugError(e);
-        }
-    }
+				topic += tuyaID + '/' + tuyaKey + '/' + tuyaIP + '/state';
+
+				mqtt_client.publish(topic, status, {
+					retain: CONFIG.retain,
+					qos: CONFIG.qos
+				});
+				debugTuya('mqtt status updated to:' + topic + ' -> ' + status);
+			} else {
+				debugTuya('mqtt status not updated');
+			}
+		} catch (error) {
+			debugError(error);
+		}
+	}
 }
 
 function publishColorState(device, state) {
@@ -245,107 +247,112 @@ function publishColorState(device, state) {
 }
 
 /**
- * publish all dps-values to topic
+ * Publish all dps-values to topic
  * @param  {TuyaDevice} device
  * @param  {Object} dps
  */
 function publishDPS(device, dps) {
-    if (mqtt_client.connected == true) {
-        try {
-            var type = device.type;
-            var tuyaID = device.options.id;
-            var tuyaKey = device.options.key;
-            var tuyaIP = device.options.ip;
+	if (mqtt_client.connected == true) {
+		try {
+			const {type} = device;
+			const tuyaID = device.options.id;
+			const tuyaKey = device.options.key;
+			const tuyaIP = device.options.ip;
 
-            if (typeof tuyaID != "undefined" && typeof tuyaKey != "undefined" && typeof tuyaIP != "undefined") {
-                var baseTopic = CONFIG.topic;
-                if (typeof type != "undefined") {
-                    baseTopic += type + "/";
-                }
-                baseTopic += tuyaID + "/" + tuyaKey + "/" + tuyaIP + "/dps";
+			if (typeof tuyaID !== 'undefined' && typeof tuyaKey !== 'undefined' && typeof tuyaIP !== 'undefined') {
+				let baseTopic = CONFIG.topic;
+				if (typeof type !== 'undefined') {
+					baseTopic += type + '/';
+				}
 
-                var topic = baseTopic;
-                var data = JSON.stringify(dps);
-                debugTuya("mqtt dps updated to:" + topic + " -> ", data);
-                mqtt_client.publish(topic, data, {
-                    retain: CONFIG.retain,
-                    qos: CONFIG.qos
-                });
+				baseTopic += tuyaID + '/' + tuyaKey + '/' + tuyaIP + '/dps';
 
-                Object.keys(dps).forEach(function (key) {
-                    var topic = baseTopic + "/" + key;
-                    var data = JSON.stringify(dps[key]);
-                    debugTuya("mqtt dps updated to:" + topic + " -> dps[" + key + "]", data);
-                    mqtt_client.publish(topic, data, {
-                        retain: CONFIG.retain,
-                        qos: CONFIG.qos
-                    });
-                });
-            } else {
-                debugTuya("mqtt dps not updated");
-            }
-        } catch (e) {
-            debugError(e);
-        }
-    }
+				const topic = baseTopic;
+				const data = JSON.stringify(dps);
+				debugTuya('mqtt dps updated to:' + topic + ' -> ', data);
+				mqtt_client.publish(topic, data, {
+					retain: CONFIG.retain,
+					qos: CONFIG.qos
+				});
+
+				Object.keys(dps).forEach(key => {
+					const topic = baseTopic + '/' + key;
+					const data = JSON.stringify(dps[key]);
+					debugTuya('mqtt dps updated to:' + topic + ' -> dps[' + key + ']', data);
+					mqtt_client.publish(topic, data, {
+						retain: CONFIG.retain,
+						qos: CONFIG.qos
+					});
+				});
+			} else {
+				debugTuya('mqtt dps not updated');
+			}
+		} catch (error) {
+			debugError(error);
+		}
+	}
 }
 
 /**
- * event fires if TuyaDevice sends data
+ * Event fires if TuyaDevice sends data
  * @see TuyAPI (https://github.com/codetheweb/tuyapi)
  */
 TuyaDevice.onAll('data', function (data) {
-    try {
-        if (typeof data.dps != "undefined") {
-            debugTuya('Data from device ' + this.type + ' :', data);
-            var status = data.dps['1'];
-            if (typeof status != "undefined") {
-                publishStatus(this, bmap(status));
-            }
-            publishDPS(this, data.dps);
-        }
-    } catch (e) {
-        debugError(e);
-    }
+	try {
+		if (typeof data.dps !== 'undefined') {
+			debugTuya('Data from device ' + this.type + ' :', data);
+			const status = data.dps['1'];
+			if (typeof status !== 'undefined') {
+				publishStatus(this, bmap(status));
+			}
+
+			publishDPS(this, data.dps);
+		}
+	} catch (error) {
+		debugError(error);
+	}
 });
 
 /**
  * MQTT connection tester
  */
 function MQTT_Tester() {
-    this.interval = null;
+	this.interval = null;
 
-    function mqttConnectionTest() {
-        if (mqtt_client.connected != connected) {
-            connected = mqtt_client.connected;
-            if (connected) {
-                debug('MQTT-Server verbunden.');
-            } else {
-                debug('MQTT-Server nicht verbunden.');
-            }
-        }
-    }
+	function mqttConnectionTest() {
+		if (mqtt_client.connected != connected) {
+			connected = mqtt_client.connected;
+			if (connected) {
+				debug('MQTT-Server verbunden.');
+			} else {
+				debug('MQTT-Server nicht verbunden.');
+			}
+		}
+	}
 
-    this.destroy = function () {
-        clearInterval(this.interval);
-        this.interval = undefined;
-    }
+	this.destroy = function () {
+		clearInterval(this.interval);
+		this.interval = undefined;
+	};
 
-    this.connect = function () {
-        this.interval = setInterval(mqttConnectionTest, 1500);
-        mqttConnectionTest();
-    }
+	this.connect = function () {
+		this.interval = setInterval(mqttConnectionTest, 1500);
+		mqttConnectionTest();
+	};
 
-    var constructor = (function (that) {
-        that.connect.call(that);
-    })(this);
+	const constructor = (function (that) {
+		that.connect.call(that);
+	})(this);
 }
-var tester = new MQTT_Tester();
+
+const tester = new MQTT_Tester();
 
 /**
  * Function call on script exit
  */
 function onExit() {
-    TuyaDevice.disconnectAll();
-    if (tester) tester.destroy();
-};
+	TuyaDevice.disconnectAll();
+	if (tester) {
+		tester.destroy();
+	}
+}

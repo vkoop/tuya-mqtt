@@ -210,7 +210,7 @@ mqtt_client.on('message', (topic, message) => {
  * @param {boolean} status
  */
 function publishStatus(device, status) {
-	if (mqtt_client.connected == true) {
+	if (mqtt_client.connected) {
 		try {
 			const {type} = device;
 			const tuyaID = device.options.id;
@@ -258,18 +258,18 @@ function publishDPS(device, dps) {
 					baseTopic += type + '/';
 				}
 
-				baseTopic += tuyaID + '/' + tuyaKey + '/' + tuyaIP + '/dps';
+				baseTopic += `${tuyaID}/${tuyaKey}/${tuyaIP}/dps`;
 
 				const topic = baseTopic;
 				const data = JSON.stringify(dps);
-				debugTuya('mqtt dps updated to:' + topic + ' -> ', data);
+				debugTuya(`mqtt dps updated to:${topic} -> `, data);
 				mqtt_client.publish(topic, data, {
 					retain: CONFIG.retain,
 					qos: CONFIG.qos
 				});
 
 				Object.keys(dps).forEach(key => {
-					const topic = baseTopic + '/' + key;
+					const topic = `${baseTopic}/${key}`;
 					const data = JSON.stringify(dps[key]);
 					debugTuya('mqtt dps updated to:' + topic + ' -> dps[' + key + ']', data);
 					mqtt_client.publish(topic, data, {

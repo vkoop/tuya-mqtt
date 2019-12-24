@@ -20,7 +20,7 @@ const debugColor = require('debug')('TuyAPI:device:color');
 class CustomTuyAPI extends TuyAPI {
 	get(options) {
 		// Set empty object as default
-		options = options ? options : {};
+		options = options || {};
 
 		const payload = {
 			gwId: this.device.gwID,

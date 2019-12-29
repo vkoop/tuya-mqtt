@@ -1,74 +1,34 @@
-const CustomTuyAPI = require('./customTuyAPI');
-const TuyColor = require('./tuya-color');
 const debug = require('debug')('TuyAPI:device');
 const debugError = require('debug')('TuyAPI:device:error');
 const debugColor = require('debug')('TuyAPI:device:color');
+const CustomTuyAPI = require('./custom-tuy-api');
+const TuyColor = require('./tuya-color');
 
-const TuyaDevice = (function () {
-	const devices = [];
-	const events = {};
+const {DEVICE_MANAGER} = require('./tuya-device-manager');
 
-	function checkExisiting(id) {
-		let existing = false;
-		// Check for existing instance
-		devices.forEach(device => {
-			if (device.hasOwnProperty('options')) {
-				if (id === device.options.id) {
-					existing = device;
-				}
-			}
-		});
-		return existing;
-	}
-
-	function deleteDevice(id) {
-		devices.forEach((device, key) => {
-			if (device.hasOwnProperty('options')) {
-				if (id === device.options.id) {
-					debug('delete Device', devices[key].toString());
-					delete devices[key];
-				}
-			}
-		});
-	}
-
-	function TuyaDevice(options, callback) {
-		const device = this;
-		// Check for existing instance
-
-		const existing = checkExisiting(options.id);
-		if (existing) {
-			return new Promise((resolve, reject) => {
-				resolve({
-					status: 'connected',
-					device: existing
-				});
-			});
-		}
-
-		if (!(this instanceof TuyaDevice)) {
-			return new TuyaDevice(options);
-		}
-
+class TuyaDevice {
+	constructor(options) {
 		options.type = options.type || undefined;
 
 		this.type = options.type;
 		this.options = options;
 
-		Object.defineProperty(this, 'device', {
-			value: new CustomTuyAPI(JSON.parse(JSON.stringify(this.options)))
-		});
+		this.device = new CustomTuyAPI(this.options);
 
 		this.device.on('data', data => {
 			if (typeof data === 'string') {
-				debugError('Data from device not encrypted:', data.replace(/[^a-zA-Z0-9 ]/g, ''));
+				debugError(
+					'Data from device not encrypted:',
+					data.replace(/[^a-zA-Z0-9 ]/g, '')
+				);
 			} else {
 				debug('Data from device:', data);
-				device.triggerAll('data', data);
+				this.triggerAll('data', data);
 			}
 		});
 
-		devices.push(this);
+		DEVICE_MANAGER.devices.push(this);
+
 		// Find device on network
 		debug('Search device in network');
 		this.find().then(() => {
@@ -76,25 +36,31 @@ const TuyaDevice = (function () {
 			// Connect to device
 			this.device.connect();
 		});
+	}
 
+	/**
+	 *
+	 * @returns {Promise<unknown>}
+	 */
+	init() {
 		/**
-         * @return promis to wait for connection
-         */
+		 * @return promis to wait for connection
+		 */
 		return new Promise((resolve, reject) => {
 			this.device.on('connected', () => {
-				device.triggerAll('connected');
-				device.connected = true;
-				debug('Connected to device.', device.toString());
+				this.triggerAll('connected');
+				this.connected = true;
+				debug('Connected to device.', this.toString());
 				resolve({
 					status: 'connected',
 					device: this
 				});
 			});
 			this.device.on('disconnected', () => {
-				device.triggerAll('disconnected');
-				device.connected = false;
-				debug('Disconnected from device.', device.toString());
-				deleteDevice(options.id);
+				this.triggerAll('disconnected');
+				this.connected = false;
+				debug('Disconnected from device.', this.toString());
+				DEVICE_MANAGER.deleteDevice(this.options.id);
 				return reject({
 					status: 'disconnect',
 					device: null
@@ -103,7 +69,7 @@ const TuyaDevice = (function () {
 
 			this.device.on('error', err => {
 				debugError(err);
-				device.triggerAll('error', err);
+				this.triggerAll('error', err);
 				return reject({
 					error: err,
 					device: this
@@ -112,40 +78,44 @@ const TuyaDevice = (function () {
 		});
 	}
 
-	TuyaDevice.prototype.toString = function () {
+	/**
+	 *
+	 * @returns {string}
+	 */
+	toString() {
 		return `${this.type} (${this.options.ip}, ${this.options.id}, ${this.options.key})`;
-	};
+	}
 
-	TuyaDevice.prototype.triggerAll = function (name, argument) {
+	triggerAll(name, argument) {
 		const device = this;
-		const e = events[name] || [];
+		const e = DEVICE_MANAGER.events[name] || [];
 		e.forEach(event => {
 			event.call(device, argument);
 		});
-	};
+	}
 
-	TuyaDevice.prototype.on = function (name, callback) {
+	on(name, callback) {
 		if (!this.connected) {
 			return;
 		}
 
 		const device = this;
-		this.device.on(name, function () {
+		this.device.on(name, function() {
 			callback.apply(device, arguments);
 		});
-	};
+	}
 
-	TuyaDevice.prototype.find = function () {
+	find() {
 		return this.device.find();
-	};
+	}
 
-	TuyaDevice.prototype.get = function () {
+	get() {
 		return this.device.get();
-	};
+	}
 
-	TuyaDevice.prototype.set = function (options) {
+	set(options) {
 		debug('set:', options);
-		return new Promise((resolve, reject) => {
+		return new Promise(resolve => {
 			this.device.set(options).then(result => {
 				this.get().then(() => {
 					debug('set completed ');
@@ -153,28 +123,25 @@ const TuyaDevice = (function () {
 				});
 			});
 		});
-	};
+	}
 
-	TuyaDevice.prototype.switch = function (newStatus, callback) {
+	switch(newStatus, callback) {
 		if (!this.connected) {
 			return;
 		}
 
 		newStatus = newStatus.toLowerCase();
-		if (newStatus === 'on') {
-			return this.switchOn(callback);
+		switch (newStatus) {
+			case 'on':
+				return this.switchOn(callback);
+			case 'off':
+				return this.switchOff(callback);
+			case 'toggle':
+				return this.toggle(callback);
 		}
+	}
 
-		if (newStatus === 'off') {
-			return this.switchOff(callback);
-		}
-
-		if (newStatus === 'toggle') {
-			return this.toggle(callback);
-		}
-	};
-
-	TuyaDevice.prototype.switchOn = function () {
+	switchOn() {
 		if (!this.connected) {
 			return;
 		}
@@ -184,9 +151,9 @@ const TuyaDevice = (function () {
 		return this.set({
 			set: true
 		});
-	};
+	}
 
-	TuyaDevice.prototype.switchOff = function () {
+	switchOff() {
 		if (!this.connected) {
 			return;
 		}
@@ -196,14 +163,14 @@ const TuyaDevice = (function () {
 		return this.set({
 			set: false
 		});
-	};
+	}
 
-	TuyaDevice.prototype.toggle = function () {
+	toggle() {
 		if (!this.connected) {
 			return;
 		}
 
-		return new Promise((resolve, reject) => {
+		return new Promise(() => {
 			this.get().then(status => {
 				debug('toogle state', status);
 				this.set({
@@ -211,9 +178,9 @@ const TuyaDevice = (function () {
 				});
 			});
 		});
-	};
+	}
 
-	TuyaDevice.prototype.setColor = function (hexColor) {
+	setColor(hexColor) {
 		if (!this.connected) {
 			return;
 		}
@@ -228,44 +195,19 @@ const TuyaDevice = (function () {
 			multiple: true,
 			data: dps
 		});
-	};
+	}
 
-	TuyaDevice.prototype.connect = function (callback) {
+	connect(callback) {
 		debug('Connect to TuyAPI Device');
 		return this.device.connect(callback);
-	};
+	}
 
-	TuyaDevice.prototype.disconnect = function (callback) {
+	disconnect(callback) {
 		debug('Disconnect from TuyAPI Device');
 		return this.device.disconnect(callback);
-	};
+	}
+}
 
-	TuyaDevice.devices = devices;
-
-	TuyaDevice.connectAll = function () {
-		devices.forEach(device => {
-			device.connect();
-		});
-	};
-
-	TuyaDevice.disconnectAll = function () {
-		devices.forEach(device => {
-			device.disconnect();
-		});
-	};
-
-	TuyaDevice.onAll = function (name, callback) {
-		if (events[name] == undefined) {
-			events[name] = [];
-		}
-
-		events[name].push(callback);
-		devices.forEach(device => {
-			device.triggerAll(name);
-		});
-	};
-
-	return TuyaDevice;
-})();
-
-module.exports = TuyaDevice;
+module.exports = {
+	TuyaDevice
+};

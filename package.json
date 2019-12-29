@@ -25,19 +25,16 @@
   },
   "devDependencies": {
     "ava": "^2.4.0",
+    "prettier": "1.19.1",
     "xo": "^0.25.3"
   },
+  "prettier" : {
+
+  },
   "xo": {
+    "prettier": true,
     "ignores": [
       "docs"
-    ],
-    "rules": {
-      "max-len": [
-        "error",
-        {
-          "code": 90
-        }
-      ]
-    }
+    ]
   }
 }

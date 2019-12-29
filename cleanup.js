@@ -3,7 +3,7 @@ const debug = require('debug')('Cleanup');
 
 function noOp() {}
 
-exports.Cleanup = function Cleanup(callback) {
+module.exports = function(callback) {
 	// Attach user callback to the process event emitter
 	// if no callback, it will still exit gracefully on Ctrl-C
 	callback = callback || noOp;

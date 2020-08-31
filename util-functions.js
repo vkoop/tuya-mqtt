@@ -26,7 +26,7 @@ function getActionFromTopic(_topic) {
 		return topic[5];
 	}
 
-	return topic[4];
+	return topic[3];
 }
 
 /**
@@ -49,8 +49,7 @@ function getDeviceFromTopic(_topic) {
 
 	return {
 		id: topic[1],
-		key: topic[2],
-		ip: topic[3]
+		key: topic[2]
 	};
 }
 
@@ -68,14 +67,18 @@ function getCommandFromTopic(_topic, _message) {
 	if (checkTopicForOldNotation(_topic)) {
 		command = topic[6];
 	} else {
-		command = topic[5];
+		command = topic[4];
 	}
 
 	command = command || _message;
 
 	if (command !== '1' && command !== '0' && isJsonString(command)) {
-		debug('command is JSON');
-		command = JSON.parse(command);
+        debug("command is JSON", command);
+	command=command.replace(/^\"/g,"").replace(/\"$/g,"").replace(/\\/g,"")
+	 debug(command);
+        command = JSON.parse(command);
+ 	debug (command)
+
 	} else if (command.toLowerCase() !== 'toggle') {
 		// Convert simple commands (on, off, 1, 0) to TuyAPI-Commands
 		const convertString = Boolean(

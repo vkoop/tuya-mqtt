@@ -104,25 +104,9 @@ class MqttClientManager {
 						case 'command': {
 							const command = getCommandFromTopic(topic, message);
 							debug('receive command', command);
-							if (command === 'toggle') {
-								device.switch(command).then(data => {
-									debug('set device status completed', data);
-								});
-							} else {
 								device.set(command).then(data => {
 									debug('set device status completed', data);
 								});
-							}
-
-							break;
-						}
-
-						case 'color': {
-							const color = message.toLowerCase();
-							debugColor('set color: ', color);
-							device.setColor(color).then(data => {
-								debug('set device color completed', data);
-							});
 							break;
 						}
 					}
@@ -138,16 +122,16 @@ class MqttClientManager {
 	handleReconnect(error) {
 		if (this.connected) {
 			debug(
-				'Verbindung mit MQTT-Server wurde unterbrochen. Erneuter Verbindungsversuch!'
+				'Connected to MQTT server!'
 			);
 		} else {
-			debug('Verbindung mit MQTT-Server konnte nicht herrgestellt werden.');
+			debug('Not Connected to MQTT server!');
 		}
 	}
 
 	handleClientError(error) {
 		debug(
-			'Verbindung mit MQTT-Server konnte nicht herrgestellt werden.',
+			'client error with  MQTT-Server',
 			error
 		);
 		this._connected = false;

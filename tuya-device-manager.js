@@ -18,7 +18,7 @@ class TuyaDeviceManager {
 		}
 
 		const {TuyaDevice} = require('./tuya-device');
-		return new TuyaDevice(options).init();
+		return new TuyaDevice({id:options.id,key:options.key}).init();
 	}
 
 	checkExisiting(id) {
